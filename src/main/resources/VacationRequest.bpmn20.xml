@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://activiti.org/bpmn20" id="definitions">
+  <process id="vacationRequest" name="Vacation request" isExecutable="true">
+    <startEvent id="request" activiti:initiator="employeeId">
+      <extensionElements>
+        <activiti:formProperty id="numberOfDays" name="Number of days" type="long" required="true"></activiti:formProperty>
+        <activiti:formProperty id="startDate" name="First day of holiday (dd-MM-yyy)" type="date" datePattern="dd-MM-yyyy hh:mm" required="true"></activiti:formProperty>
+        <activiti:formProperty id="vacationMotivation" name="Motivation" type="string"></activiti:formProperty>
+      </extensionElements>
+    </startEvent>
+    <sequenceFlow id="flow1" sourceRef="request" targetRef="handleRequest"></sequenceFlow>
+    <userTask id="handleRequest" name="上级领导审批" activiti:assignee="${humanService.getDirectManagerId(currentOperator)}">
+      <documentation>${employeeId} would like to take ${numberOfDays} day(s) of vacation (Motivation: ${vacationMotivation}).</documentation>
+      <extensionElements>
+        <activiti:formProperty id="vacationApproved" name="Do you approve this vacation" type="enum" required="true">
+          <activiti:value id="true" name="Approve"></activiti:value>
+          <activiti:value id="false" name="Reject"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="managerMotivation" name="Motivation" type="string"></activiti:formProperty>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="true">
+        <loopCardinality>5</loopCardinality>
+        <completionCondition>${humanService.getDirectManagerId(currentOperator) == null}</completionCondition>
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+    <sequenceFlow id="flow2" sourceRef="handleRequest" targetRef="requestApprovedDecision"></sequenceFlow>
+    <exclusiveGateway id="requestApprovedDecision" name="Request approved?"></exclusiveGateway>
+    <sequenceFlow id="flow3" name="批准" sourceRef="usertask1" targetRef="usertask2"></sequenceFlow>
+    <sequenceFlow id="flow10" name="结算完成" sourceRef="usertask2" targetRef="sendApprovalMail"></sequenceFlow>
+    <manualTask id="sendApprovalMail" name="Send confirmation e-mail"></manualTask>
+    <sequenceFlow id="flow4" sourceRef="sendApprovalMail" targetRef="theEnd1"></sequenceFlow>
+    <endEvent id="theEnd1"></endEvent>
+    <sequenceFlow id="flow5" name="不批准" sourceRef="requestApprovedDecision" targetRef="adjustVacationRequestTask">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${vacationApproved == 'false'}]]></conditionExpression>
+    </sequenceFlow>
+    <userTask id="adjustVacationRequestTask" name="Adjust vacation request" activiti:owner="${employeeId}">
+      <documentation>Your manager has disapproved your vacation request for ${numberOfDays} days.
+        Reason: ${managerMotivation}</documentation>
+      <extensionElements>
+        <activiti:formProperty id="numberOfDays" name="Number of days" type="long" required="true"></activiti:formProperty>
+        <activiti:formProperty id="startDate" name="First day of holiday (dd-MM-yyy)" type="date" datePattern="dd-MM-yyyy hh:mm" required="true"></activiti:formProperty>
+        <activiti:formProperty id="vacationMotivation" name="Motivation" type="string"></activiti:formProperty>
+        <activiti:formProperty id="resendRequest" name="Resend vacation request to manager?" type="enum" required="true">
+          <activiti:value id="true" name="Yes"></activiti:value>
+          <activiti:value id="false" name="No"></activiti:value>
+        </activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow6" sourceRef="adjustVacationRequestTask" targetRef="resendRequestDecision"></sequenceFlow>
+    <exclusiveGateway id="resendRequestDecision" name="Resend request?"></exclusiveGateway>
+    <sequenceFlow id="flow7" name="重发" sourceRef="resendRequestDecision" targetRef="handleRequest">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${resendRequest == 'true'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow8" name="不重发 " sourceRef="resendRequestDecision" targetRef="theEnd2">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${resendRequest == 'false'}]]></conditionExpression>
+    </sequenceFlow>
+    <endEvent id="theEnd2"></endEvent>
+    <userTask id="usertask1" name="财务审核" activiti:candidateUsers="${humanService.getUsersByRole('ACCOUNTANT')}"></userTask>
+    <userTask id="usertask2" name="出纳结算" activiti:candidateUsers="${humanService.getUsersByRole('CASHIER')}"></userTask>
+    
+    <sequenceFlow id="flow9" sourceRef="requestApprovedDecision" targetRef="usertask1">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${vacationApproved == 'true'}]]></conditionExpression>
+    </sequenceFlow>
+  </process>
+</definitions>
