@@ -14,7 +14,7 @@
 	</repositories>
 
 	<properties>
-		<springVersion>4.1.1.RELEASE</springVersion>
+		<springVersion>5.2.21.RELEASE</springVersion>
 		<activitiVersion>5.18.0</activitiVersion>
 	</properties>
 
